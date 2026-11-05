@@ -1,0 +1,136 @@
+<!doctype html><html><head><meta charset="utf-8"><title>AgentGuard Dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#0b1020;color:#e6e9f2}
+header{padding:16px 24px;border-bottom:1px solid #222a44}h1{margin:0;font-size:20px}
+main{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;padding:24px}
+section{background:#131a33;border-radius:10px;padding:16px}h2{margin-top:0;font-size:15px;color:#9fb0ff}
+input,button{padding:6px 8px;border-radius:6px;border:1px solid #334;background:#0b1020;color:inherit}
+button{cursor:pointer;background:#2a3a8a}table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:4px;border-bottom:1px solid #222a44;text-align:left;word-break:break-all}
+.allow{color:#4ade80}.warn{color:#facc15}.block{color:#f87171}.muted{color:#8890aa;font-size:12px}
+.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;text-transform:uppercase}
+.pill.allow{background:#14532d;color:#4ade80}.pill.warn,.pill.pending{background:#422006;color:#facc15}.pill.approve{background:#14532d;color:#86efac}.pill.block,.pill.reject{background:#450a0a;color:#f87171}
+.wide{grid-column:1/-1}#feed{max-height:340px;overflow:auto}#feed .row{display:grid;grid-template-columns:80px 76px 1fr 110px;gap:8px;padding:6px 4px;border-bottom:1px solid #222a44;font-size:13px}
+#feed .row.new{animation:flash 1.2s}@keyframes flash{from{background:#2a3a8a}to{background:transparent}}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#555}.dot.live{background:#4ade80;box-shadow:0 0 6px #4ade80}.dot.poll{background:#facc15}
+.empty{padding:18px;text-align:center;color:#8890aa;font-size:13px}.empty .spin{display:inline-block;animation:sp 1.5s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+.card{border:1px solid #222a44;border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}.card .actions{margin-top:8px;display:flex;gap:8px;align-items:center}
+button.ok{background:#166534}button.no{background:#7f1d1d}button:disabled{opacity:.5;cursor:wait}
+</style></head><body>
+<header><h1>🛡️ AgentGuard</h1><div class="muted" id="health">checking API…</div></header>
+<main>
+<section class="wide"><h2><span id="feedDot" class="dot"></span>Live activity <span class="muted" id="feedMode">connecting…</span></h2>
+<div id="feed"><div class="empty"><span class="spin">⏳</span> waiting for backend…</div></div></section>
+<section class="wide"><h2>Pending approvals <span class="muted" id="pendMode"></span></h2><div id="pending"><div class="empty">loading…</div></div></section>
+<section><h2>Agent policy</h2>
+<input id="agentId" value="agent.agentguard-15173.testnet" size="34"> <button onclick="loadAgent()">Load</button>
+<div id="policy" class="muted">—</div></section>
+<section><h2>Score a payment (allow / warn / block)</h2>
+<div><input id="rcv" placeholder="receiver" value="scam.agentguard-15173.testnet" size="34"></div>
+<div style="margin-top:6px"><input id="amt" placeholder="amount (yocto, optional)" size="20">
+<input id="memo" placeholder="memo / instruction" size="20"> <button onclick="doScore()">Score</button></div>
+<div id="score" class="muted">—</div><h2 style="margin-top:14px">Decisions this session</h2>
+<table id="decisions"><tr><th>time</th><th>receiver</th><th>verdict</th><th>risk</th></tr></table></section>
+<section><h2>Incidents (blocked on-chain)</h2><table id="incidents"><tr><td class="muted">load an agent</td></tr></table></section>
+<section><h2>Shared blocklist</h2><button onclick="loadBlocks()">Refresh</button><table id="blocks"></table></section>
+</main>
+<script>
+const api = (path, q = {}) => fetch('/api/proxy?' + new URLSearchParams({ path, ...q })).then(r => r.json());
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const near = y => (Number(BigInt(y || 0) / 10n**20n) / 1e4).toFixed(4) + ' Ⓝ';
+async function health(){ const h = await api('/health').catch(e=>({error:String(e)}));
+  document.getElementById('health').textContent = h.ok ? 'API ok · contract ' + h.contract : 'API error: ' + (h.error||'?'); }
+async function loadAgent(){ const id = agentId.value.trim(); const p = await api('/agent', { id });
+  if (!p || p.error) { policy.textContent = p ? p.error : 'not registered'; incidents.innerHTML=''; return; }
+  policy.innerHTML = `<table>
+  <tr><td>owner</td><td>${esc(p.owner)}</td></tr><tr><td>status</td><td class="${p.paused?'block':'allow'}">${p.paused?'PAUSED':'active'}</td></tr>
+  <tr><td>vault</td><td>${near(p.balance)}</td></tr><tr><td>per-tx cap</td><td>${near(p.per_tx_cap)}</td></tr>
+  <tr><td>daily cap</td><td>${near(p.daily_cap)} (spent ${near(p.spent_today)})</td></tr>
+  <tr><td>sent / blocked</td><td>${p.tx_count} / ${p.blocked_count}</td></tr>
+  <tr><td>allowlist</td><td>${esc(p.allowlist.join(', ')||'(any)')}</td></tr><tr><td>blocklist</td><td>${esc(p.blocklist.join(', ')||'—')}</td></tr></table>`;
+  incidents.innerHTML = '<tr><th>time</th><th>receiver</th><th>amount</th><th>reason</th></tr>' +
+    (p.incidents||[]).slice().reverse().map(i => `<tr><td>${new Date(i.timestamp_ms).toLocaleString()}</td><td>${esc(i.receiver)}</td><td>${near(i.amount)}</td><td class="block">${esc(i.reason)}</td></tr>`).join(''); }
+async function doScore(){ const q = { receiver: rcv.value.trim(), memo: memo.value };
+  if (amt.value) { q.amount = amt.value.trim(); q.agent = agentId.value.trim(); }
+  const s = await api('/score', q); if (s.error) { score.textContent = s.error; return; }
+  score.innerHTML = `<b class="${s.verdict}">${s.verdict.toUpperCase()}</b> risk ${s.risk}<br>${s.reasons.map(esc).join('<br>')||'no issues'}`;
+  decisions.insertAdjacentHTML('beforeend', `<tr><td>${new Date().toLocaleTimeString()}</td><td>${esc(q.receiver)}</td><td class="${s.verdict}">${s.verdict}</td><td>${s.risk}</td></tr>`); }
+async function loadBlocks(){ const b = await api('/blocklist'); if (!Array.isArray(b)) { blocks.innerHTML = `<tr><td>${esc(b.error)}</td></tr>`; return; }
+  blocks.innerHTML = '<tr><th>account</th><th>reason</th><th>by</th></tr>' + b.map(([a,g]) => `<tr><td>${esc(a)}</td><td>${esc(g.reason)}</td><td>${esc(g.confirmed_by)}</td></tr>`).join(''); }
+health(); loadAgent(); loadBlocks();
+
+// ---------- live activity feed: SSE -> polling -> waiting ----------
+const seen = new Set(); let feedCount = 0;
+const kindOf = e => String(e.verdict || e.decision || e.status || e.type || e.kind || 'event').toLowerCase()
+  .replace(/^(allowed|sent)$/, 'allow').replace(/^blocked$/, 'block').replace(/^approved$/, 'approve').replace(/^rejected$/, 'reject').replace(/^(awaiting|needs_approval)$/, 'pending');
+const evKey = e => e.id ?? `${e.ts ?? e.time ?? e.timestamp ?? e.timestamp_ms}|${e.receiver ?? e.receiver_id}|${kindOf(e)}|${e.amount}`;
+const evTime = e => { const t = e.ts ?? e.time ?? e.timestamp ?? e.timestamp_ms ?? e.at; const d = t ? new Date(typeof t === 'number' && t < 1e12 ? t * 1000 : t) : new Date(); return isNaN(d) ? '' : d.toLocaleTimeString(); };
+const amt = a => { try { return a ? near(a) : ''; } catch { return esc(a); } };
+function addEvent(e, animate = true) {
+  if (!e || typeof e !== 'object') return; const k = evKey(e); if (seen.has(k)) return; seen.add(k);
+  if (!feedCount++) feed.innerHTML = '';
+  const kd = kindOf(e), why = (e.reasons || []).join('; ') || e.reason || e.memo || '';
+  feed.insertAdjacentHTML('afterbegin', `<div class="row${animate ? ' new' : ''}"><span class="muted">${evTime(e)}</span>
+    <span><span class="pill ${esc(kd)}">${esc(kd)}</span></span>
+    <span>${esc(e.receiver ?? e.receiver_id ?? '')}${why ? `<div class="muted">${esc(why)}</div>` : ''}</span>
+    <span>${amt(e.amount)}${e.risk != null ? ` <span class="muted">r${esc(e.risk)}</span>` : ''}</span></div>`);
+  if (kd === 'pending') loadPendingSoon();
+}
+const setMode = (dot, text) => { feedDot.className = 'dot ' + dot; feedMode.textContent = text; };
+let pollTimer;
+function startFeed() {
+  if (!window.EventSource) return startPolling();
+  const es = new EventSource('/api/proxy?path=/events/stream'); let opened = false;
+  es.onopen = () => { opened = true; setMode('live', 'live (SSE)'); };
+  es.onmessage = m => { try { const d = JSON.parse(m.data); (Array.isArray(d) ? d : [d]).forEach(x => addEvent(x)); } catch {} };
+  ['decision', 'allow', 'block', 'warn', 'pending'].forEach(t => es.addEventListener(t, es.onmessage));
+  es.onerror = () => { if (!opened || es.readyState === EventSource.CLOSED) { es.close(); startPolling(); } };
+}
+async function pollOnce() {
+  const r = await fetch('/api/proxy?path=/events').catch(() => null);
+  if (!r || !r.ok) { setMode('', r && r.status === 404 ? 'waiting for backend (no /events yet)' : 'waiting for backend');
+    if (!feedCount) feed.innerHTML = '<div class="empty"><span class="spin">⏳</span> waiting for backend… decisions will appear here live</div>'; return false; }
+  const j = await r.json().catch(() => []); const list = Array.isArray(j) ? j : (j.events || j.items || []);
+  list.slice().reverse().forEach(e => addEvent(e, feedCount > 0)); setMode('poll', 'polling every 3s');
+  if (!feedCount) feed.innerHTML = '<div class="empty">no decisions yet</div>'; return true;
+}
+function startPolling() { clearInterval(pollTimer); pollOnce(); pollTimer = setInterval(async () => {
+  if (await pollOnce() === false && !startPolling.retrySse) { startPolling.retrySse = true; setTimeout(() => { startPolling.retrySse = false; clearInterval(pollTimer); startFeed(); }, 30000); } }, 3000); }
+
+// ---------- pending approvals ----------
+// Body shape matches agent/server.js /approve: {id, action:'approve'|'reject'}. 'decision' kept as an alias. Change only here.
+function approveBody(item, decision) { return { id: item.id, action: decision, decision }; }
+async function sendDecision(item, decision) {
+  const r = await fetch('/api/proxy?path=/approve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(approveBody(item, decision)) });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 404) throw new Error(j.error && j.error !== 'not found' ? j.error : 'approval endpoint not available yet (404)');
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`); return j;
+}
+let pendingItems = []; let inFlight = 0; const results = {}; let pendTimer;
+const loadPendingSoon = () => { clearTimeout(pendTimer); pendTimer = setTimeout(loadPending, 400); };
+async function loadPending() {
+  if (inFlight) return loadPendingSoon();
+  const r = await fetch('/api/proxy?path=/pending').catch(() => null);
+  if (!r || !r.ok) { pendMode.textContent = ''; pending.innerHTML = `<div class="empty">${r && r.status === 404 ? 'waiting for backend: approvals queue (/pending) not live yet' : 'waiting for backend…'}</div>`; return; }
+  const j = await r.json().catch(() => []); pendingItems = Array.isArray(j) ? j : (j.pending || j.items || []);
+  pendMode.textContent = `${pendingItems.length} waiting`;
+  const done = Object.values(results).slice(-3).map(h => `<div class="card muted">${h}</div>`).join('');
+  if (!pendingItems.length) { pending.innerHTML = '<div class="empty">✓ nothing waiting for a human</div>' + done; return; }
+  pending.innerHTML = pendingItems.map((p, i) => `<div class="card" id="pc${i}"><span class="pill pending">pending</span>
+    <b>${esc(p.receiver ?? p.receiver_id ?? '?')}</b> ${amt(p.amount)} <span class="muted">${esc(p.agent ?? p.agent_id ?? '')} ${p.risk != null ? 'risk ' + esc(p.risk) : ''}</span>
+    <div class="muted">${esc((p.reasons || []).join('; ') || p.reason || p.memo || '')}</div>
+    <div class="actions"><button class="ok" onclick="decide(${i},'approve')">Approve</button><button class="no" onclick="decide(${i},'reject')">Reject</button><span class="muted" id="pr${i}"></span></div></div>`).join('') + done;
+}
+async function decide(i, decision) {
+  const card = document.getElementById('pc' + i), out = document.getElementById('pr' + i), btns = card.querySelectorAll('button');
+  btns.forEach(b => b.disabled = true); inFlight++; out.textContent = decision === 'approve' ? 'approving…' : 'rejecting…';
+  try { const j = await sendDecision(pendingItems[i], decision);
+    out.innerHTML = `<span class="${decision === 'approve' ? 'allow' : 'block'}">${decision === 'approve' ? 'approved' : 'rejected'}</span> ${esc(j.status || j.reason || j.tx || '')}`;
+    const it = pendingItems[i]; results[it.id ?? i] = `${out.innerHTML} · ${esc(it.receiver ?? it.receiver_id ?? '')} ${amt(it.amount)}`;
+    setTimeout(loadPending, 1500);
+  } catch (e) { out.innerHTML = `<span class="block">${esc(e.message)}</span>`; btns.forEach(b => b.disabled = false); }
+  finally { inFlight--; }
+}
+startFeed(); loadPending(); setInterval(loadPending, 10000);
+</script></body></html>

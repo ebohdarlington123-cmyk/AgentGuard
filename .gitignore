@@ -1,0 +1,14 @@
+node_modules/
+target/
+.env
+.env.local
+.env.*
+!.env.example
+*.pem
+*credentials*
+.near-credentials/
+*.key
+*secret*
+*.keystore
+keys/
+.vercel/
