@@ -1,4 +1,4 @@
-# AgentGuard (NEAR HACKATHON, work in progress)
+# AgentGuard (NEAR Hackathon)
 
 A firewall that sits in front of an AI agent's payments on NEAR. The agent holds only a **function-call access key** scoped to `execute_transfer` / `request_transfer` on the guard contract. Every payment has to pass two checks:
 
