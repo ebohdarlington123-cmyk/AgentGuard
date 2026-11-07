@@ -41,7 +41,7 @@ const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;
 const near = y => (Number(BigInt(y || 0) / 10n**20n) / 1e4).toFixed(4) + ' Ⓝ';
 async function health(){ const h = await api('/health').catch(e=>({error:String(e)}));
   document.getElementById('health').textContent = h.ok ? 'API ok · contract ' + h.contract : 'API error: ' + (h.error||'?'); }
-async function loadAgent(){ const id = agentId.value.trim(); const p = await api('/agent', { id });
+async function loadAgent(){ const id = document.getElementById('agentId').value.trim(); const p = await api('/agent', { id });
   if (!p || p.error) { policy.textContent = p ? p.error : 'not registered'; incidents.innerHTML=''; return; }
   policy.innerHTML = `<table>
   <tr><td>owner</td><td>${esc(p.owner)}</td></tr><tr><td>status</td><td class="${p.paused?'block':'allow'}">${p.paused?'PAUSED':'active'}</td></tr>
@@ -51,11 +51,18 @@ async function loadAgent(){ const id = agentId.value.trim(); const p = await api
   <tr><td>allowlist</td><td>${esc(p.allowlist.join(', ')||'(any)')}</td></tr><tr><td>blocklist</td><td>${esc(p.blocklist.join(', ')||'—')}</td></tr></table>`;
   incidents.innerHTML = '<tr><th>time</th><th>receiver</th><th>amount</th><th>reason</th></tr>' +
     (p.incidents||[]).slice().reverse().map(i => `<tr><td>${new Date(i.timestamp_ms).toLocaleString()}</td><td>${esc(i.receiver)}</td><td>${near(i.amount)}</td><td class="block">${esc(i.reason)}</td></tr>`).join(''); }
-async function doScore(){ const q = { receiver: rcv.value.trim(), memo: memo.value };
-  if (amt.value) { q.amount = amt.value.trim(); q.agent = agentId.value.trim(); }
-  const s = await api('/score', q); if (s.error) { score.textContent = s.error; return; }
-  score.innerHTML = `<b class="${s.verdict}">${s.verdict.toUpperCase()}</b> risk ${s.risk}<br>${s.reasons.map(esc).join('<br>')||'no issues'}`;
-  decisions.insertAdjacentHTML('beforeend', `<tr><td>${new Date().toLocaleTimeString()}</td><td>${esc(q.receiver)}</td><td class="${s.verdict}">${s.verdict}</td><td>${s.risk}</td></tr>`); }
+async function doScore(){
+  const receiver = document.getElementById('rcv').value.trim();
+  const memo = document.getElementById('memo').value;
+  const amount = document.getElementById('amt').value.trim();
+  const agent = document.getElementById('agentId').value.trim();
+  const q = { receiver, memo };
+  if (amount) { q.amount = amount; q.agent = agent; }
+  const s = await api('/score', q);
+  const out = document.getElementById('score');
+  if (s.error) { out.textContent = s.error; return; }
+  out.innerHTML = `<b class="${s.verdict}">${s.verdict.toUpperCase()}</b> risk ${s.risk}<br>${s.reasons.map(esc).join('<br>')||'no issues'}`;
+  document.getElementById('decisions').insertAdjacentHTML('beforeend', `<tr><td>${new Date().toLocaleTimeString()}</td><td>${esc(q.receiver)}</td><td class="${s.verdict}">${s.verdict}</td><td>${s.risk}</td></tr>`); }
 async function loadBlocks(){ const b = await api('/blocklist'); if (!Array.isArray(b)) { blocks.innerHTML = `<tr><td>${esc(b.error)}</td></tr>`; return; }
   blocks.innerHTML = '<tr><th>account</th><th>reason</th><th>by</th></tr>' + b.map(([a,g]) => `<tr><td>${esc(a)}</td><td>${esc(g.reason)}</td><td>${esc(g.confirmed_by)}</td></tr>`).join(''); }
 health(); loadAgent(); loadBlocks();
@@ -66,15 +73,16 @@ const kindOf = e => String(e.verdict || e.decision || e.status || e.type || e.ki
   .replace(/^(allowed|sent)$/, 'allow').replace(/^blocked$/, 'block').replace(/^approved$/, 'approve').replace(/^rejected$/, 'reject').replace(/^(awaiting|needs_approval)$/, 'pending');
 const evKey = e => e.id ?? `${e.ts ?? e.time ?? e.timestamp ?? e.timestamp_ms}|${e.receiver ?? e.receiver_id}|${kindOf(e)}|${e.amount}`;
 const evTime = e => { const t = e.ts ?? e.time ?? e.timestamp ?? e.timestamp_ms ?? e.at; const d = t ? new Date(typeof t === 'number' && t < 1e12 ? t * 1000 : t) : new Date(); return isNaN(d) ? '' : d.toLocaleTimeString(); };
-const amt = a => { try { return a ? near(a) : ''; } catch { return esc(a); } };
+const formatAmount = a => { try { return a ? near(a) : ''; } catch { return esc(a); } };
 function addEvent(e, animate = true) {
   if (!e || typeof e !== 'object') return; const k = evKey(e); if (seen.has(k)) return; seen.add(k);
   if (!feedCount++) feed.innerHTML = '';
   const kd = kindOf(e), why = (e.reasons || []).join('; ') || e.reason || e.memo || '';
+  const who = e.agent ?? e.agent_id ?? '';
   feed.insertAdjacentHTML('afterbegin', `<div class="row${animate ? ' new' : ''}"><span class="muted">${evTime(e)}</span>
     <span><span class="pill ${esc(kd)}">${esc(kd)}</span></span>
-    <span>${esc(e.receiver ?? e.receiver_id ?? '')}${why ? `<div class="muted">${esc(why)}</div>` : ''}</span>
-    <span>${amt(e.amount)}${e.risk != null ? ` <span class="muted">r${esc(e.risk)}</span>` : ''}</span></div>`);
+    <span>${esc(e.receiver ?? e.receiver_id ?? '')}${who ? `<div class="muted">${esc(who)}</div>` : ''}${why ? `<div class="muted">${esc(why)}</div>` : ''}</span>
+    <span>${formatAmount(e.amount)}${e.risk != null ? ` <span class="muted">r${esc(e.risk)}</span>` : ''}</span></div>`);
   if (kd === 'pending') loadPendingSoon();
 }
 const setMode = (dot, text) => { feedDot.className = 'dot ' + dot; feedMode.textContent = text; };
@@ -118,7 +126,7 @@ async function loadPending() {
   const done = Object.values(results).slice(-3).map(h => `<div class="card muted">${h}</div>`).join('');
   if (!pendingItems.length) { pending.innerHTML = '<div class="empty">✓ nothing waiting for a human</div>' + done; return; }
   pending.innerHTML = pendingItems.map((p, i) => `<div class="card" id="pc${i}"><span class="pill pending">pending</span>
-    <b>${esc(p.receiver ?? p.receiver_id ?? '?')}</b> ${amt(p.amount)} <span class="muted">${esc(p.agent ?? p.agent_id ?? '')} ${p.risk != null ? 'risk ' + esc(p.risk) : ''}</span>
+    <b>${esc(p.receiver ?? p.receiver_id ?? '?')}</b> ${formatAmount(p.amount)} <span class="muted">${esc(p.agent ?? p.agent_id ?? '')} ${p.risk != null ? 'risk ' + esc(p.risk) : ''}</span>
     <div class="muted">${esc((p.reasons || []).join('; ') || p.reason || p.memo || '')}</div>
     <div class="actions"><button class="ok" onclick="decide(${i},'approve')">Approve</button><button class="no" onclick="decide(${i},'reject')">Reject</button><span class="muted" id="pr${i}"></span></div></div>`).join('') + done;
 }
@@ -127,7 +135,7 @@ async function decide(i, decision) {
   btns.forEach(b => b.disabled = true); inFlight++; out.textContent = decision === 'approve' ? 'approving…' : 'rejecting…';
   try { const j = await sendDecision(pendingItems[i], decision);
     out.innerHTML = `<span class="${decision === 'approve' ? 'allow' : 'block'}">${decision === 'approve' ? 'approved' : 'rejected'}</span> ${esc(j.status || j.reason || j.tx || '')}`;
-    const it = pendingItems[i]; results[it.id ?? i] = `${out.innerHTML} · ${esc(it.receiver ?? it.receiver_id ?? '')} ${amt(it.amount)}`;
+    const it = pendingItems[i]; results[it.id ?? i] = `${out.innerHTML} · ${esc(it.receiver ?? it.receiver_id ?? '')} ${formatAmount(it.amount)}`;
     setTimeout(loadPending, 1500);
   } catch (e) { out.innerHTML = `<span class="block">${esc(e.message)}</span>`; btns.forEach(b => b.disabled = false); }
   finally { inFlight--; }

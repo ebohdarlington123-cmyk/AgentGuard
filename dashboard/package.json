@@ -1,2 +1,2 @@
 { "name": "agentguard-dashboard", "private": true, "type": "module",
-  "scripts": { "dev": "node dev.js" } }
+  "scripts": { "dev": "node dev.js", "test": "node --test test/*.test.js" } }
