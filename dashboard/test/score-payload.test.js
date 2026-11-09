@@ -124,6 +124,9 @@ test('page script no longer lets the amount formatter shadow the amount input', 
   assert.match(html, /tryExample\('inject'\)/);
   assert.match(html, /tryExample\('ok'\)/);
   assert.match(html, /github\.com\/ebohdarlington123-cmyk\/AgentGuard/);
+  assert.match(html, /Agents pay/);
+  assert.match(html, /class="intercept"/);
+  assert.doesNotMatch(html, /plain[- ]english/i);
   assert.doesNotMatch(html, /testimonial|trusted by \d|AI analyzed|powered by AI/i);
   const yml = readFileSync(new URL('../../.github/workflows/keep-awake.yml', import.meta.url), 'utf8');
   assert.match(yml, /cron: '\*\/10 \* \* \* \*'/);
