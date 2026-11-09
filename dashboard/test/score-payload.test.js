@@ -129,7 +129,12 @@ test('page script no longer lets the amount formatter shadow the amount input', 
   assert.match(html, /Shopping agent/);
   assert.match(html, /BLOCKED: 0\.7 NEAR is over the 0\.5 NEAR limit/);
   assert.match(html, /Hidden instruction in memo/);
-  assert.match(html, /Under the hood/);
+  assert.match(html, /id="try"/);
+  assert.match(html, /id="rules"/);
+  assert.match(html, /id="stopped"/);
+  assert.match(html, /id="own"/);
+  assert.match(html, /id="activity"/);
+  assert.doesNotMatch(html, /class="work"/);
   assert.match(html, /Spending limit: 0\.5 NEAR per payment/);
   assert.match(html, /Live on NEAR testnet/);
   assert.match(html, /class="intercept"/);
