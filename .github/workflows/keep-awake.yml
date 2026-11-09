@@ -1,0 +1,29 @@
+# Pings the public demo API so Render's free tier is less likely to sleep.
+# Render sleeps after about 15 minutes without traffic. A visit then waits ~1 minute.
+#
+# This schedule runs ONLY after the workflow is on the default branch (main).
+# GitHub does not run scheduled workflows from pull requests or other branches.
+# GitHub can also delay cron jobs by several minutes under load; the dashboard
+# still shows "Waking up the demo server…" and retries if a ping is late.
+# workflow_dispatch lets someone wake the API once, from the Actions tab, on main.
+name: Keep demo API awake
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: GET /health
+        run: |
+          curl --fail-with-body --retry 4 --retry-delay 15 --retry-all-errors --max-time 70 \
+            --silent --show-error \
+            https://agentguard-api-duxl.onrender.com/health
+          echo

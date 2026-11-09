@@ -26,7 +26,9 @@ export default async function handler(req, res) {
   const sse = path === '/events/stream';
   const ctrl = new AbortController(); res.on('close', () => { if (!res.writableFinished) ctrl.abort(); });
   try {
-    const init = { method: req.method, signal: sse ? ctrl.signal : AbortSignal.any([ctrl.signal, AbortSignal.timeout(15000)]), headers: {} };
+    // Cold Render free-tier boots often take 30–50s. The page paints first and shows
+    // "Waking up the demo server…"; this wait lets one health/score call finish a boot.
+    const init = { method: req.method, signal: sse ? ctrl.signal : AbortSignal.any([ctrl.signal, AbortSignal.timeout(50000)]), headers: {} };
     if (req.method === 'POST') {
       init.body = await readBody(req); init.headers['content-type'] = 'application/json';
       // Optional: if agent/server.js runs with AG_APPROVE_SECRET, set the same env var here (server-side only, never sent to the browser).
