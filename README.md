@@ -115,6 +115,7 @@ Static page (`public/index.html`) + Vercel proxy (`api/proxy.js`) that allowlist
 SSE is streamed unbuffered. If `AG_APPROVE_SECRET` is set on the API, set the same env on the proxy so it forwards `x-ag-approve-secret`.
 - Local: `npm run dev`. Set `AG_API_URL` if the API isn't at `http://localhost:8787`.
 - Do not put secrets in the browser; the proxy adds the approve header server-side.
+- The public API is a Render free service and sleeps after about 15 minutes idle. `.github/workflows/keep-awake.yml` pings `GET /health` every 10 minutes. Scheduled runs start only once that file is on `main`. The page itself loads immediately and retries with “Waking up the demo server…” if the API is still cold.
 
 ## Deploy (testnet)
 ```bash

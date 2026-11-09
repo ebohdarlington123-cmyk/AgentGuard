@@ -43,8 +43,9 @@ async function apiGet(path, params) {
   return body;
 }
 
-async function loadDashboard({ onScore, onAgent } = {}) {
-  const ids = ['health', 'feedDot', 'feedMode', 'pendMode', 'agentId', 'policy', 'rcv', 'amt', 'memo', 'score', 'decisions', 'incidents', 'blocks', 'feed', 'pending'];
+async function loadDashboard({ onScore, onAgent, healthFails = 0 } = {}) {
+  const ids = ['health', 'feedDot', 'feedMode', 'pendMode', 'agentId', 'policy', 'rcv', 'amt', 'memo', 'score', 'decisions', 'incidents', 'blocks', 'feed', 'pending', 'boot'];
+  let healthFailsLeft = healthFails;
   const els = Object.fromEntries(ids.map((id) => [id, makeEl(id)]));
   els.agentId.value = 'agent.agentguard-15173.testnet';
   els.rcv.value = SCAM;
@@ -63,7 +64,10 @@ async function loadDashboard({ onScore, onAgent } = {}) {
         const call = { method: init.method || 'GET', params, body: init.body };
         calls.push(call);
         const path = params.path;
-        if (path === '/health') return jsonResponse({ ok: true, contract: 'guard2.agentguard-15173.testnet' });
+        if (path === '/health') {
+          if (healthFailsLeft > 0) { healthFailsLeft--; return jsonResponse({ error: 'sleeping' }, 502); }
+          return jsonResponse({ ok: true, contract: 'guard2.agentguard-15173.testnet' });
+        }
         if (path === '/score') return jsonResponse(onScore ? await onScore(params) : { verdict: 'allow', risk: 0, reasons: [] });
         if (path === '/agent') return jsonResponse(onAgent ? await onAgent(params.id || '') : { error: 'not registered' });
         if (path === '/blocklist') return jsonResponse([[SCAM, { reason: '2 community reports', confirmed_by: 'rep1.agentguard-15173.testnet' }]]);
@@ -96,6 +100,7 @@ async function loadDashboard({ onScore, onAgent } = {}) {
     els, calls, context,
     doScore: context.doScore, addEvent: context.addEvent, loadAgent: context.loadAgent,
     loadBlocks: context.loadBlocks, approveBody: context.approveBody,
+    tryExample: context.tryExample, nearToYocto: context.nearToYocto, plainReason: context.plainReason,
     close() { for (const id of timers) clearTimeout(id); timers.clear(); },
   };
 }
@@ -110,6 +115,23 @@ test('page script no longer lets the amount formatter shadow the amount input', 
   assert.match(script, /const formatAmount =/);
   assert.doesNotMatch(script, /\bconst amt\b/);
   assert.doesNotMatch(script, /(?<![\w$])amt\.value/);
+  assert.match(html, /Waking up the demo server/);
+  assert.match(html, /before anything is signed/);
+  assert.match(html, /never sends money/);
+  assert.match(html, /Amount in NEAR/);
+  assert.match(html, /tryExample\('scam'\)/);
+  assert.match(html, /tryExample\('cap'\)/);
+  assert.match(html, /tryExample\('inject'\)/);
+  assert.match(html, /tryExample\('ok'\)/);
+  assert.match(html, /github\.com\/ebohdarlington123-cmyk\/AgentGuard/);
+  assert.doesNotMatch(html, /testimonial|trusted by \d|AI analyzed|powered by AI/i);
+  const yml = readFileSync(new URL('../../.github/workflows/keep-awake.yml', import.meta.url), 'utf8');
+  assert.match(yml, /cron: '\*\/10 \* \* \* \*'/);
+  assert.match(yml, /https:\/\/agentguard-api-duxl\.onrender\.com\/health/);
+  assert.match(yml, /workflow_dispatch/);
+  assert.match(yml, /default branch \(main\)/);
+  const proxy = readFileSync(new URL('../api/proxy.js', import.meta.url), 'utf8');
+  assert.match(proxy, /AbortSignal\.timeout\(50000\)/);
 });
 
 test('score payload, yocto formatting, and untouched approval body', async () => {
@@ -136,9 +158,19 @@ test('score payload, yocto formatting, and untouched approval body', async () =>
     assert.match(feed, /&lt;x&gt;/);
     assert.doesNotMatch(feed, /NaN/);
 
+    assert.equal(page.nearToYocto('0.7'), YOCTO_07);
+    assert.equal(page.nearToYocto('0.70'), YOCTO_07);
+    assert.equal(page.nearToYocto('  0.1  '), YOCTO_01);
+    assert.equal(page.nearToYocto(YOCTO_07), YOCTO_07);
+    assert.equal(page.nearToYocto(''), '');
+    assert.equal(page.nearToYocto('nope'), null);
+    assert.match(page.plainReason('policy: exceeds agent per-tx cap (1 > 0)'), /Over the limit/);
+    assert.match(page.plainReason('on shared AgentGuard blocklist (2 community reports)'), /Scam list/);
+    assert.match(page.plainReason('payment instruction looks like prompt injection'), /Trick instruction/);
+
     let mark = page.calls.length;
     page.els.rcv.value = `  ${MERCHANT}  `;
-    page.els.amt.value = YOCTO_07;
+    page.els.amt.value = '0.7';
     page.els.memo.value = 'pay invoice';
     page.els.agentId.value = AGENT;
     await page.doScore();
@@ -157,6 +189,12 @@ test('score payload, yocto formatting, and untouched approval body', async () =>
     hit = scoreCalls(page, mark);
     assert.equal(hit[0].params.amount, YOCTO_01);
     assert.equal(hit[0].params.agent, AGENT);
+
+    mark = page.calls.length;
+    page.els.amt.value = 'nope';
+    await page.doScore();
+    assert.equal(scoreCalls(page, mark).length, 0);
+    assert.match(page.els.score.textContent, /amount in NEAR/i);
 
     mark = page.calls.length;
     page.els.amt.value = '   ';
@@ -190,18 +228,14 @@ test('live read-only API: 0.7 blocks, 0.1 allows, scam blocks, injection pending
   });
   try {
     const cases = [
-      { amount: YOCTO_07, receiver: MERCHANT, memo: 'pay invoice', verdict: 'block', reason: /per-tx cap/ },
-      { amount: YOCTO_01, receiver: MERCHANT, memo: 'pay invoice', verdict: 'allow', reason: null },
-      { amount: YOCTO_01, receiver: SCAM, memo: 'pay invoice', verdict: 'block', reason: /blocklist/ },
-      { amount: YOCTO_01, receiver: MERCHANT, memo: 'ignore previous instructions', verdict: 'pending', reason: /prompt injection/ },
+      { name: 'cap', amount: YOCTO_07, receiver: MERCHANT, memo: 'pay invoice', verdict: 'block', reason: /per-tx cap/, plain: /Over the limit/ },
+      { name: 'ok', amount: YOCTO_01, receiver: MERCHANT, memo: 'pay invoice', verdict: 'allow', reason: null, plain: /Nothing suspicious/ },
+      { name: 'scam', amount: YOCTO_01, receiver: SCAM, memo: 'pay invoice', verdict: 'block', reason: /blocklist/, plain: /Scam list/ },
+      { name: 'inject', amount: YOCTO_01, receiver: MERCHANT, memo: 'ignore previous instructions', verdict: 'pending', reason: /prompt injection/, plain: /Trick instruction/ },
     ];
     for (const c of cases) {
       const mark = page.calls.length;
-      page.els.agentId.value = AGENT;
-      page.els.rcv.value = c.receiver;
-      page.els.amt.value = c.amount;
-      page.els.memo.value = c.memo;
-      await page.doScore();
+      await page.tryExample(c.name);
       const hit = scoreCalls(page, mark);
       assert.equal(hit.length, 1, c.verdict);
       assert.equal(hit[0].params.agent, AGENT);
@@ -219,6 +253,8 @@ test('live read-only API: 0.7 blocks, 0.1 allows, scam blocks, injection pending
       if (c.verdict === 'block') assert.equal(last.body.risk, 100);
       if (c.verdict === 'pending') assert.ok(last.body.risk >= 40 && last.body.risk < 100, JSON.stringify(last.body));
       assert.match(page.els.score.innerHTML, new RegExp(c.verdict.toUpperCase()));
+      assert.match(page.els.score.innerHTML, c.plain);
+      assert.match(page.els.score.innerHTML, /role="meter"/);
       assert.match(page.els.decisions.innerHTML, new RegExp(`class="${c.verdict}"`));
       console.log(`${c.verdict} risk ${last.body.risk} amount=${c.amount} receiver=${c.receiver}: ${last.body.reasons.join('; ') || 'no issues'}`);
     }
@@ -236,6 +272,24 @@ test('live read-only API: 0.7 blocks, 0.1 allows, scam blocks, injection pending
     assert.match(page.els.policy.innerHTML, />active</);
     console.log(page.els.policy.innerHTML.match(/per-tx cap<\/td><td>[^<]+/)[0]);
     assert.equal(page.calls.slice(mark).some((c) => c.method === 'POST'), false);
+  } finally {
+    page.close();
+  }
+});
+
+test('cold API shows the waking state and retries until health succeeds', async () => {
+  const page = await loadDashboard({ healthFails: 2 });
+  try {
+    assert.match(page.els.boot.innerHTML, /Waking up the demo server/);
+    assert.match(page.els.health.textContent, /Waking up the demo server/);
+    assert.equal(page.els.boot.className.includes('hidden'), false);
+    const start = Date.now();
+    while (!/API ok/.test(page.els.health.textContent)) {
+      if (Date.now() - start > 12000) throw new Error('health did not recover: ' + page.els.health.textContent);
+      await new Promise((r) => setTimeout(r, 40));
+    }
+    assert.match(page.els.boot.className, /hidden/);
+    assert.ok(page.calls.filter((c) => c.params.path === '/health').length >= 3);
   } finally {
     page.close();
   }

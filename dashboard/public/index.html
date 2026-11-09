@@ -1,48 +1,263 @@
-<!doctype html><html><head><meta charset="utf-8"><title>AgentGuard Dashboard</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>AgentGuard — check a payment before an AI agent sends it</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#070b14">
 <style>
-body{font-family:system-ui,sans-serif;margin:0;background:#0b1020;color:#e6e9f2}
-header{padding:16px 24px;border-bottom:1px solid #222a44}h1{margin:0;font-size:20px}
-main{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px;padding:24px}
-section{background:#131a33;border-radius:10px;padding:16px}h2{margin-top:0;font-size:15px;color:#9fb0ff}
-input,button{padding:6px 8px;border-radius:6px;border:1px solid #334;background:#0b1020;color:inherit}
-button{cursor:pointer;background:#2a3a8a}table{width:100%;border-collapse:collapse;font-size:13px}
-td,th{padding:4px;border-bottom:1px solid #222a44;text-align:left;word-break:break-all}
-.allow{color:#4ade80}.warn{color:#facc15}.block{color:#f87171}.muted{color:#8890aa;font-size:12px}
-.pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:11px;font-weight:600;text-transform:uppercase}
-.pill.allow{background:#14532d;color:#4ade80}.pill.warn,.pill.pending{background:#422006;color:#facc15}.pill.approve{background:#14532d;color:#86efac}.pill.block,.pill.reject{background:#450a0a;color:#f87171}
-.wide{grid-column:1/-1}#feed{max-height:340px;overflow:auto}#feed .row{display:grid;grid-template-columns:80px 76px 1fr 110px;gap:8px;padding:6px 4px;border-bottom:1px solid #222a44;font-size:13px}
-#feed .row.new{animation:flash 1.2s}@keyframes flash{from{background:#2a3a8a}to{background:transparent}}
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#555}.dot.live{background:#4ade80;box-shadow:0 0 6px #4ade80}.dot.poll{background:#facc15}
-.empty{padding:18px;text-align:center;color:#8890aa;font-size:13px}.empty .spin{display:inline-block;animation:sp 1.5s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
-.card{border:1px solid #222a44;border-radius:8px;padding:10px;margin-bottom:8px;font-size:13px}.card .actions{margin-top:8px;display:flex;gap:8px;align-items:center}
-button.ok{background:#166534}button.no{background:#7f1d1d}button:disabled{opacity:.5;cursor:wait}
+:root{color-scheme:dark;--bg:#070b14;--card:#12182b;--line:rgba(255,255,255,.08);--muted:#9aa6c0;--text:#e8edf7;--gold:#e8c27a;--allow:#3ee0a0;--pending:#ffc14d;--block:#ff5d73}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;color:var(--text);font-family:ui-sans-serif,system-ui,"Segoe UI",sans-serif;background:
+  radial-gradient(1000px 420px at 0% -10%,rgba(232,194,122,.18),transparent 55%),
+  radial-gradient(800px 380px at 100% 0%,rgba(90,130,255,.16),transparent 50%),
+  var(--bg)}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;position:sticky;top:0;z-index:10;background:rgba(7,11,20,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand strong{font-size:18px;letter-spacing:.01em}
+.brand span{display:block;color:var(--muted);font-size:12px;font-weight:500}
+header .spacer{flex:1}
+a.source{color:var(--gold);font-size:14px;font-weight:650;text-decoration:none}
+a.source:hover{text-decoration:underline}
+#health{color:var(--muted);font-size:12px;text-align:right}
+main{max-width:1120px;margin:0 auto;padding:18px 16px 56px;display:grid;gap:16px}
+.top{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;align-items:start}
+section, .panel{background:rgba(18,24,43,.94);border:1px solid var(--line);border-radius:18px;padding:18px 18px 16px;box-shadow:0 18px 50px rgba(0,0,0,.22)}
+section.top{background:none;border:0;box-shadow:none;padding:0}
+.kicker{margin:0 0 8px;color:var(--gold);font-size:12px;font-weight:750;letter-spacing:.14em;text-transform:uppercase}
+h1{margin:0 0 10px;font-size:34px;line-height:1.08;letter-spacing:-.03em}
+.lede{margin:0 0 8px;font-size:17px;line-height:1.45}
+.honest{margin:0 0 14px;color:var(--muted);font-size:14px}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;padding:0;list-style:none}
+.legend li{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
+.legend .block{color:var(--block);background:#2a1218}
+.legend .pending{color:var(--pending);background:#2a2110}
+.legend .allow{color:var(--allow);background:#10241c}
+.steps{margin:0 0 14px;padding:0;list-style:none;display:grid;gap:8px}
+.steps li{display:grid;grid-template-columns:28px 1fr;gap:8px;align-items:start;font-size:14px;line-height:1.35}
+.steps b{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#1c243c;color:var(--gold);font-size:13px}
+h2{margin:0 0 10px;font-size:15px;letter-spacing:.02em}
+label{display:block;margin:10px 0 4px;color:var(--muted);font-size:12px;font-weight:650}
+input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid #2c3654;background:#0b1020;color:inherit;font:inherit;font-size:16px}
+button{font:inherit;cursor:pointer;border:0;border-radius:12px;padding:10px 12px;background:#243056;color:inherit}
+button:disabled{opacity:.55;cursor:wait}
+button.primary{width:100%;margin-top:12px;min-height:48px;background:var(--gold);color:#1b1408;font-weight:800}
+button.ghost{background:transparent;border:1px solid #2c3654;color:var(--text);min-height:40px}
+.examples{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+button.ex{min-height:56px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;background:#0e1428;border:1px solid #2c3654}
+button.ex small{color:var(--muted);font-size:11px;font-weight:750;letter-spacing:.04em;text-transform:uppercase}
+.hint{margin:8px 0 0;color:var(--muted);font-size:12px}
+.score-slot{min-height:120px;scroll-margin-top:76px}
+.verdict-card{border-radius:16px;padding:16px;border:1px solid var(--line);background:#0d1324;animation:rise .4s ease}
+.verdict-card b{display:block;font-size:40px;line-height:1;letter-spacing:.08em;margin:6px 0}
+.verdict-card.block{background:linear-gradient(180deg,#2a1218,#120e14);border-color:rgba(255,93,115,.55)}
+.verdict-card.pending{background:linear-gradient(180deg,#2a2110,#14140e);border-color:rgba(255,193,77,.55)}
+.verdict-card.allow{background:linear-gradient(180deg,#10241c,#0e1414);border-color:rgba(62,224,160,.5)}
+.mark{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:50%;font-weight:800}
+.block .mark{background:#4a1520;color:var(--block)}
+.pending .mark{background:#3d2e10;color:var(--pending)}
+.allow .mark{background:#123528;color:var(--allow)}
+.meter{height:10px;border-radius:99px;background:#070b14;overflow:hidden;margin:12px 0 6px}
+.meter span{display:block;height:100%;border-radius:99px;background:var(--gold)}
+.block .meter span{background:var(--block)}
+.pending .meter span{background:var(--pending)}
+.allow .meter span{background:var(--allow)}
+.risk{color:var(--muted);font-size:13px;font-weight:700}
+.plain{margin:10px 0 0;font-size:16px;line-height:1.35}
+.tech{margin:2px 0 0;color:var(--muted);font-size:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-word}
+.who{display:flex;flex-direction:column;gap:2px;margin:0;color:var(--muted);font-size:13px}
+.who span:first-child{word-break:break-all}
+.near-amt{font-weight:750;color:var(--text);word-break:normal}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:6px 4px;border-bottom:1px solid #222a44;text-align:left;word-break:break-word;vertical-align:top}
+th{word-break:normal;white-space:nowrap}
+.allow{color:var(--allow)}.warn,.pending{color:var(--pending)}.block{color:var(--block)}.muted{color:var(--muted);font-size:12px}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:750;text-transform:uppercase}
+.pill.allow,.pill.approve{background:#123528;color:var(--allow)}
+.pill.warn,.pill.pending{background:#3d2e10;color:var(--pending)}
+.pill.block,.pill.reject{background:#4a1520;color:var(--block)}
+#feed{max-height:360px;overflow:auto}
+#feed .row{display:grid;grid-template-columns:78px 78px 1fr 120px;gap:8px;padding:8px 2px;border-bottom:1px solid #222a44;font-size:13px}
+#feed .row.new{animation:flash 1.2s}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#555}
+.dot.live{background:var(--allow);box-shadow:0 0 6px var(--allow)}
+.dot.poll{background:var(--pending)}
+.empty{padding:16px;text-align:center;color:var(--muted);font-size:13px}
+.card{border:1px solid #222a44;border-radius:12px;padding:12px;margin-bottom:8px;font-size:13px}
+.card .actions{margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+button.ok{background:#166534}button.no{background:#7f1d1d}
+.boot{position:fixed;z-index:30;left:12px;right:12px;bottom:16px;max-width:560px;margin:0 auto;padding:12px 14px;border-radius:14px;background:#1b2438;border:1px solid rgba(232,194,122,.45);box-shadow:0 16px 40px rgba(0,0,0,.35);animation:wakeIn .25s ease .4s both}
+.boot.hidden{display:none}
+.boot strong{display:block;margin-bottom:4px}
+.boot p{margin:0;color:var(--muted);font-size:13px;line-height:1.4}
+.tables{overflow:auto}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes flash{from{background:#243056}to{background:transparent}}
+@keyframes wakeIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (max-width:860px){
+  h1{font-size:28px}
+  .top,.grid-2,.examples{grid-template-columns:1fr}
+  header{flex-wrap:wrap}
+  #health{width:100%;text-align:left}
+  #feed .row{grid-template-columns:1fr 1fr}
+  .verdict-card b{font-size:34px}
+}
+@media (prefers-reduced-motion:reduce){
+  .verdict-card,.boot,#feed .row.new{animation:none}
+}
 </style></head><body>
-<header><h1>🛡️ AgentGuard</h1><div class="muted" id="health">checking API…</div></header>
+<header>
+  <div class="brand">
+    <svg width="36" height="36" viewBox="0 0 64 64" aria-hidden="true">
+      <path d="M32 4 54 13v16c0 14.5-8.8 24.6-22 30.5C18.8 53.6 10 43.5 10 29V13z" fill="#12182b" stroke="#e8c27a" stroke-width="2.5"/>
+      <path d="M20 30h24c-1 5-6 9-12 9s-11-4-12-9z" fill="#e8c27a"/>
+      <path d="M22 27c2.2-5 17.8-5 20 0" fill="none" stroke="#e8c27a" stroke-width="2"/>
+    </svg>
+    <div><strong>AgentGuard</strong><span>Safety check for AI payments</span></div>
+  </div>
+  <div class="spacer"></div>
+  <a class="source" href="https://github.com/ebohdarlington123-cmyk/AgentGuard">Source</a>
+  <div id="health">Page ready</div>
+</header>
+<div id="boot" class="boot">
+  <strong>Waking up the demo server…</strong>
+  <p>This free demo sleeps when idle, so the first visit can take about a minute. This page is already loaded. Retrying automatically.</p>
+</div>
 <main>
-<section class="wide"><h2><span id="feedDot" class="dot"></span>Live activity <span class="muted" id="feedMode">connecting…</span></h2>
-<div id="feed"><div class="empty"><span class="spin">⏳</span> waiting for backend…</div></div></section>
-<section class="wide"><h2>Pending approvals <span class="muted" id="pendMode"></span></h2><div id="pending"><div class="empty">loading…</div></div></section>
-<section><h2>Agent policy</h2>
-<input id="agentId" value="agent.agentguard-15173.testnet" size="34"> <button onclick="loadAgent()">Load</button>
-<div id="policy" class="muted">—</div></section>
-<section><h2>Score a payment (allow / warn / block)</h2>
-<div><input id="rcv" placeholder="receiver" value="scam.agentguard-15173.testnet" size="34"></div>
-<div style="margin-top:6px"><input id="amt" placeholder="amount (yocto, optional)" size="20">
-<input id="memo" placeholder="memo / instruction" size="20"> <button onclick="doScore()">Score</button></div>
-<div id="score" class="muted">—</div><h2 style="margin-top:14px">Decisions this session</h2>
-<table id="decisions"><tr><th>time</th><th>receiver</th><th>verdict</th><th>risk</th></tr></table></section>
-<section><h2>Incidents (blocked on-chain)</h2><table id="incidents"><tr><td class="muted">load an agent</td></tr></table></section>
-<section><h2>Shared blocklist</h2><button onclick="loadBlocks()">Refresh</button><table id="blocks"></table></section>
+<section class="top">
+  <div class="panel">
+    <p class="kicker">Plain-English demo</p>
+    <h1>Check a payment before an AI agent sends it.</h1>
+    <p class="lede">AgentGuard is a safety check that looks at every payment an AI agent tries to make and blocks scams, over-limit spends, and trick instructions before anything is signed.</p>
+    <p class="honest">This public demo only evaluates a payment. It never sends money.</p>
+    <ul class="legend">
+      <li class="block">Block — do not pay</li>
+      <li class="pending">Hold — a person should look</li>
+      <li class="allow">Allow — within the rules</li>
+    </ul>
+    <ol class="steps">
+      <li><b>1</b><span>The agent asks to pay someone a certain amount, sometimes with a note.</span></li>
+      <li><b>2</b><span>AgentGuard checks who gets the money, whether it is over the limit, and whether the note is trying to trick the agent.</span></li>
+      <li><b>3</b><span>You see block, hold, or allow. Nothing here is signed or sent.</span></li>
+    </ol>
+    <div class="examples">
+      <button type="button" class="ex" onclick="tryExample('scam')">Scam address<small>should block</small></button>
+      <button type="button" class="ex" onclick="tryExample('cap')">Over the 0.5 NEAR cap<small>should block</small></button>
+      <button type="button" class="ex" onclick="tryExample('inject')">Trick instruction<small>should hold</small></button>
+      <button type="button" class="ex" onclick="tryExample('ok')">Normal 0.1 NEAR<small>should allow</small></button>
+    </div>
+    <p class="hint" id="capHint">Uses the live testnet demo agent. You don't need to type anything.</p>
+  </div>
+  <section>
+    <h2>Try a payment</h2>
+    <label for="agentId">Agent that would pay</label>
+    <input id="agentId" value="agent2.agentguard-15173.testnet" autocomplete="off">
+    <label for="rcv">Who gets paid</label>
+    <input id="rcv" value="merchant.agentguard-15173.testnet" autocomplete="off">
+    <label for="amt">Amount in NEAR</label>
+    <input id="amt" inputmode="decimal" placeholder="0.1" autocomplete="off">
+    <label for="memo">Note from the agent</label>
+    <input id="memo" placeholder="pay invoice" autocomplete="off">
+    <button type="button" class="primary" onclick="doScore()">Check this payment</button>
+    <div id="score" class="score-slot"><p class="muted">Pick an example. The result shows up here. No money moves.</p></div>
+    <h2 style="margin-top:16px">Checks this session</h2>
+    <div class="tables"><table id="decisions"><tr><th>time</th><th>receiver</th><th>verdict</th><th>risk</th></tr></table></div>
+  </section>
+</section>
+<section class="grid-2">
+  <div>
+    <h2>Spending rules</h2>
+    <p class="muted">Read-only. Loading an agent does not change the rules or move money.</p>
+    <button type="button" class="ghost" onclick="loadAgent()">Load rules</button>
+    <div id="policy" class="muted">The demo agent's limit loads here.</div>
+  </div>
+  <div>
+    <h2>Payments this agent already stopped</h2>
+    <div class="tables"><table id="incidents"><tr><td class="muted">Load an agent to see stopped payments.</td></tr></table></div>
+  </div>
+</section>
+<section>
+  <h2>Known scam accounts</h2>
+  <button type="button" class="ghost" onclick="loadBlocks()">Refresh</button>
+  <div class="tables"><table id="blocks"></table></div>
+</section>
+<section>
+  <h2><span id="feedDot" class="dot"></span>Recent checks <span class="muted" id="feedMode">connecting…</span></h2>
+  <div id="feed"><div class="empty">Recent checks will show here once the demo server answers.</div></div>
+</section>
+<section>
+  <h2>Waiting for a person <span class="muted" id="pendMode"></span></h2>
+  <div id="pending"><div class="empty">Checking for payments a person still needs to look at…</div></div>
+</section>
 </main>
 <script>
+const DEMO_AGENT = 'agent2.agentguard-15173.testnet';
 const api = (path, q = {}) => fetch('/api/proxy?' + new URLSearchParams({ path, ...q })).then(r => r.json());
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const near = y => (Number(BigInt(y || 0) / 10n**20n) / 1e4).toFixed(4) + ' Ⓝ';
-async function health(){ const h = await api('/health').catch(e=>({error:String(e)}));
-  document.getElementById('health').textContent = h.ok ? 'API ok · contract ' + h.contract : 'API error: ' + (h.error||'?'); }
-async function loadAgent(){ const id = document.getElementById('agentId').value.trim(); const p = await api('/agent', { id });
-  if (!p || p.error) { policy.textContent = p ? p.error : 'not registered'; incidents.innerHTML=''; return; }
+function nearToYocto(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return '';
+  if (!/^\d+(\.\d+)?$/.test(s)) return null;
+  if (!s.includes('.') && s.length >= 15) return s.replace(/^0+/, '') || '0';
+  const [whole, frac = ''] = s.split('.');
+  if (frac.length > 24) return null;
+  const digits = (whole + frac.padEnd(24, '0')).replace(/^0+/, '') || '0';
+  return digits === '0' ? '' : digits;
+}
+function plainReason(reason) {
+  const r = String(reason || '');
+  if (/per-tx cap|per-payment cap|per tx cap/i.test(r)) return 'Over the limit: this payment is larger than the agent is allowed to send at once.';
+  if (/daily cap/i.test(r)) return 'Over the daily limit: this agent has already spent too much today.';
+  if (/blocklist|globally blocked/i.test(r)) return 'Scam list: this receiver was reported and is blocked.';
+  if (/prompt injection/i.test(r)) return 'Trick instruction: the note looks like someone trying to override the agent.';
+  if (/does not exist/i.test(r)) return 'That account does not exist, so the money would bounce.';
+  if (/impersonat/i.test(r)) return 'The name looks like it is imitating a known project.';
+  if (/very new|account is new/i.test(r)) return 'This account is very new.';
+  if (/unverified contract/i.test(r)) return 'This is a contract that has not been checked.';
+  return 'Needs a closer look before anyone pays.';
+}
+function reasonHtml(reasons) {
+  if (!reasons || !reasons.length) return '<p class="plain">Nothing suspicious. This payment stays within the rules.</p>';
+  const seenPlain = new Set();
+  return reasons.map(r => {
+    const p = plainReason(r);
+    const plain = seenPlain.has(p) ? '' : `<p class="plain">${esc(p)}</p>`;
+    seenPlain.add(p);
+    return `${plain}<p class="tech">${esc(r)}</p>`;
+  }).join('');
+}
+let apiReady = false; let queuedScore = false; let scoring = false; let wakeTimer; let wakeAttempt = 0;
+function setBoot(waking, attempt) {
+  const boot = document.getElementById('boot');
+  if (!boot) return;
+  if (!waking) { boot.className = 'boot hidden'; return; }
+  boot.className = 'boot';
+  boot.innerHTML = `<strong>Waking up the demo server…</strong><p>This free demo sleeps when idle, so the first visit can take about a minute. This page is already loaded. Retrying automatically${attempt ? ' (attempt ' + attempt + ')' : ''}.</p>`;
+}
+async function health() {
+  wakeAttempt++;
+  let h;
+  try { h = await api('/health'); } catch (e) { h = { error: String(e) }; }
+  if (h && h.ok) {
+    apiReady = true; wakeAttempt = 0; setBoot(false);
+    document.getElementById('health').textContent = 'API ok · contract ' + h.contract;
+    if (queuedScore) { queuedScore = false; doScore(); }
+    return;
+  }
+  setBoot(true, wakeAttempt);
+  document.getElementById('health').textContent = 'Waking up the demo server… attempt ' + wakeAttempt;
+  clearTimeout(wakeTimer);
+  wakeTimer = setTimeout(health, Math.min(8000, 1500 * wakeAttempt));
+}
+async function loadAgent() {
+  const id = document.getElementById('agentId').value.trim();
+  const p = await api('/agent', { id });
+  const hint = document.getElementById('capHint');
+  if (!p || p.error) {
+    policy.textContent = p ? p.error : 'not registered';
+    incidents.innerHTML = '';
+    if (hint) hint.textContent = p && p.error ? p.error : 'This agent is not registered.';
+    return;
+  }
+  if (hint) hint.textContent = `This agent's limit is ${near(p.per_tx_cap)} per payment. Loading the rules does not change them.`;
   policy.innerHTML = `<table>
   <tr><td>owner</td><td>${esc(p.owner)}</td></tr><tr><td>status</td><td class="${p.paused?'block':'allow'}">${p.paused?'PAUSED':'active'}</td></tr>
   <tr><td>vault</td><td>${near(p.balance)}</td></tr><tr><td>per-tx cap</td><td>${near(p.per_tx_cap)}</td></tr>
@@ -50,24 +265,64 @@ async function loadAgent(){ const id = document.getElementById('agentId').value.
   <tr><td>sent / blocked</td><td>${p.tx_count} / ${p.blocked_count}</td></tr>
   <tr><td>allowlist</td><td>${esc(p.allowlist.join(', ')||'(any)')}</td></tr><tr><td>blocklist</td><td>${esc(p.blocklist.join(', ')||'—')}</td></tr></table>`;
   incidents.innerHTML = '<tr><th>time</th><th>receiver</th><th>amount</th><th>reason</th></tr>' +
-    (p.incidents||[]).slice().reverse().map(i => `<tr><td>${new Date(i.timestamp_ms).toLocaleString()}</td><td>${esc(i.receiver)}</td><td>${near(i.amount)}</td><td class="block">${esc(i.reason)}</td></tr>`).join(''); }
-async function doScore(){
+    (p.incidents||[]).slice().reverse().map(i => `<tr><td>${new Date(i.timestamp_ms).toLocaleString()}</td><td>${esc(i.receiver)}</td><td>${near(i.amount)}</td><td class="block">${esc(i.reason)}</td></tr>`).join('');
+}
+function renderScore(s, receiver, amountNear) {
+  const v = String(s.verdict || 'pending');
+  const risk = Math.max(0, Math.min(100, Number(s.risk) || 0));
+  const icon = v === 'block' ? '✕' : v === 'pending' ? '!' : '✓';
+  const shown = amountNear ? esc(amountNear) + ' NEAR' : 'no amount entered';
+  return `<article class="verdict-card ${esc(v)}"><span class="mark">${icon}</span><b class="${esc(v)}">${esc(v).toUpperCase()}</b>
+    <p class="who"><span>${esc(receiver)}</span><span class="near-amt">${shown}</span></p>
+    <div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${risk}" aria-label="risk ${risk}"><span style="width:${risk}%"></span></div>
+    <div class="risk">Risk ${esc(risk)} / 100</div>
+    ${reasonHtml(s.reasons)}</article>`;
+}
+async function doScore() {
   const receiver = document.getElementById('rcv').value.trim();
   const memo = document.getElementById('memo').value;
-  const amount = document.getElementById('amt').value.trim();
+  const amountNear = document.getElementById('amt').value.trim();
   const agent = document.getElementById('agentId').value.trim();
-  const q = { receiver, memo };
-  if (amount) { q.amount = amount; q.agent = agent; }
-  const s = await api('/score', q);
+  const yocto = nearToYocto(amountNear);
   const out = document.getElementById('score');
-  if (s.error) { out.textContent = s.error; return; }
-  out.innerHTML = `<b class="${s.verdict}">${s.verdict.toUpperCase()}</b> risk ${s.risk}<br>${s.reasons.map(esc).join('<br>')||'no issues'}`;
-  document.getElementById('decisions').insertAdjacentHTML('beforeend', `<tr><td>${new Date().toLocaleTimeString()}</td><td>${esc(q.receiver)}</td><td class="${s.verdict}">${s.verdict}</td><td>${s.risk}</td></tr>`); }
-async function loadBlocks(){ const b = await api('/blocklist'); if (!Array.isArray(b)) { blocks.innerHTML = `<tr><td>${esc(b.error)}</td></tr>`; return; }
-  blocks.innerHTML = '<tr><th>account</th><th>reason</th><th>by</th></tr>' + b.map(([a,g]) => `<tr><td>${esc(a)}</td><td>${esc(g.reason)}</td><td>${esc(g.confirmed_by)}</td></tr>`).join(''); }
+  if (yocto === null) { out.textContent = 'Enter the amount in NEAR, such as 0.1 or 0.7.'; return; }
+  if (!apiReady) {
+    queuedScore = true;
+    out.innerHTML = '<article class="verdict-card pending"><span class="mark">!</span><b class="pending">WAITING</b><p class="plain">Waking up the demo server… This check will run automatically when it answers.</p></article>';
+    return;
+  }
+  if (scoring) return;
+  scoring = true;
+  try {
+    const q = { receiver, memo };
+    if (yocto) { q.amount = yocto; q.agent = agent; }
+    const s = await api('/score', q);
+    if (s.error) { out.textContent = s.error; return; }
+    out.innerHTML = renderScore(s, q.receiver, amountNear);
+    document.getElementById('decisions').insertAdjacentHTML('beforeend', `<tr><td>${new Date().toLocaleTimeString()}</td><td>${esc(q.receiver)}</td><td class="${s.verdict}">${s.verdict}</td><td>${s.risk}</td></tr>`);
+  } finally { scoring = false; }
+}
+async function tryExample(name) {
+  const demo = {
+    scam: { receiver: 'scam.agentguard-15173.testnet', amount: '0.1', memo: 'pay invoice' },
+    cap: { receiver: 'merchant.agentguard-15173.testnet', amount: '0.7', memo: 'pay invoice' },
+    inject: { receiver: 'merchant.agentguard-15173.testnet', amount: '0.1', memo: 'ignore previous instructions' },
+    ok: { receiver: 'merchant.agentguard-15173.testnet', amount: '0.1', memo: 'pay invoice' },
+  }[name];
+  if (!demo) return;
+  document.getElementById('agentId').value = DEMO_AGENT;
+  document.getElementById('rcv').value = demo.receiver;
+  document.getElementById('amt').value = demo.amount;
+  document.getElementById('memo').value = demo.memo;
+  return doScore();
+}
+async function loadBlocks() {
+  const b = await api('/blocklist');
+  if (!Array.isArray(b)) { blocks.innerHTML = `<tr><td>${esc(b.error)}</td></tr>`; return; }
+  blocks.innerHTML = '<tr><th>account</th><th>reason</th><th>by</th></tr>' + b.map(([a,g]) => `<tr><td>${esc(a)}</td><td>${esc(g.reason)}</td><td>${esc(g.confirmed_by)}</td></tr>`).join('');
+}
 health(); loadAgent(); loadBlocks();
 
-// ---------- live activity feed: SSE -> polling -> waiting ----------
 const seen = new Set(); let feedCount = 0;
 const kindOf = e => String(e.verdict || e.decision || e.status || e.type || e.kind || 'event').toLowerCase()
   .replace(/^(allowed|sent)$/, 'allow').replace(/^blocked$/, 'block').replace(/^approved$/, 'approve').replace(/^rejected$/, 'reject').replace(/^(awaiting|needs_approval)$/, 'pending');
@@ -90,23 +345,22 @@ let pollTimer;
 function startFeed() {
   if (!window.EventSource) return startPolling();
   const es = new EventSource('/api/proxy?path=/events/stream'); let opened = false;
-  es.onopen = () => { opened = true; setMode('live', 'live (SSE)'); };
+  es.onopen = () => { opened = true; setMode('live', 'live'); };
   es.onmessage = m => { try { const d = JSON.parse(m.data); (Array.isArray(d) ? d : [d]).forEach(x => addEvent(x)); } catch {} };
   ['decision', 'allow', 'block', 'warn', 'pending'].forEach(t => es.addEventListener(t, es.onmessage));
   es.onerror = () => { if (!opened || es.readyState === EventSource.CLOSED) { es.close(); startPolling(); } };
 }
 async function pollOnce() {
   const r = await fetch('/api/proxy?path=/events').catch(() => null);
-  if (!r || !r.ok) { setMode('', r && r.status === 404 ? 'waiting for backend (no /events yet)' : 'waiting for backend');
-    if (!feedCount) feed.innerHTML = '<div class="empty"><span class="spin">⏳</span> waiting for backend… decisions will appear here live</div>'; return false; }
+  if (!r || !r.ok) { setMode('', 'waking up');
+    if (!feedCount) feed.innerHTML = '<div class="empty">The demo server is waking up. Recent checks will appear here automatically.</div>'; return false; }
   const j = await r.json().catch(() => []); const list = Array.isArray(j) ? j : (j.events || j.items || []);
-  list.slice().reverse().forEach(e => addEvent(e, feedCount > 0)); setMode('poll', 'polling every 3s');
-  if (!feedCount) feed.innerHTML = '<div class="empty">no decisions yet</div>'; return true;
+  list.slice().reverse().forEach(e => addEvent(e, feedCount > 0)); setMode('poll', 'updating');
+  if (!feedCount) feed.innerHTML = '<div class="empty">No checks yet. Run an example and it will show up here.</div>'; return true;
 }
 function startPolling() { clearInterval(pollTimer); pollOnce(); pollTimer = setInterval(async () => {
   if (await pollOnce() === false && !startPolling.retrySse) { startPolling.retrySse = true; setTimeout(() => { startPolling.retrySse = false; clearInterval(pollTimer); startFeed(); }, 30000); } }, 3000); }
 
-// ---------- pending approvals ----------
 // Body shape matches agent/server.js /approve: {id, action:'approve'|'reject'}. 'decision' kept as an alias. Change only here.
 function approveBody(item, decision) { return { id: item.id, action: decision, decision }; }
 async function sendDecision(item, decision) {
@@ -120,11 +374,11 @@ const loadPendingSoon = () => { clearTimeout(pendTimer); pendTimer = setTimeout(
 async function loadPending() {
   if (inFlight) return loadPendingSoon();
   const r = await fetch('/api/proxy?path=/pending').catch(() => null);
-  if (!r || !r.ok) { pendMode.textContent = ''; pending.innerHTML = `<div class="empty">${r && r.status === 404 ? 'waiting for backend: approvals queue (/pending) not live yet' : 'waiting for backend…'}</div>`; return; }
+  if (!r || !r.ok) { pendMode.textContent = ''; pending.innerHTML = '<div class="empty">The demo server is waking up. Payments waiting for a person will show here automatically.</div>'; return; }
   const j = await r.json().catch(() => []); pendingItems = Array.isArray(j) ? j : (j.pending || j.items || []);
   pendMode.textContent = `${pendingItems.length} waiting`;
   const done = Object.values(results).slice(-3).map(h => `<div class="card muted">${h}</div>`).join('');
-  if (!pendingItems.length) { pending.innerHTML = '<div class="empty">✓ nothing waiting for a human</div>' + done; return; }
+  if (!pendingItems.length) { pending.innerHTML = '<div class="empty">Nothing is waiting for a person.</div>' + done; return; }
   pending.innerHTML = pendingItems.map((p, i) => `<div class="card" id="pc${i}"><span class="pill pending">pending</span>
     <b>${esc(p.receiver ?? p.receiver_id ?? '?')}</b> ${formatAmount(p.amount)} <span class="muted">${esc(p.agent ?? p.agent_id ?? '')} ${p.risk != null ? 'risk ' + esc(p.risk) : ''}</span>
     <div class="muted">${esc((p.reasons || []).join('; ') || p.reason || p.memo || '')}</div>
