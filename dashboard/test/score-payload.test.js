@@ -134,6 +134,11 @@ test('page script no longer lets the amount formatter shadow the amount input', 
   assert.match(html, /id="stopped"/);
   assert.match(html, /id="own"/);
   assert.match(html, /id="activity"/);
+  assert.match(html, /id="checkNow"/);
+  assert.match(html, /Check now/);
+  assert.match(html, /onclick="showTab\('rules'\)"/);
+  assert.doesNotMatch(html, /class="jump"/);
+  assert.doesNotMatch(html, /id="checkNow"[^>]*disabled/);
   assert.doesNotMatch(html, /class="work"/);
   assert.match(html, /Spending limit: 0\.5 NEAR per payment/);
   assert.match(html, /Live on NEAR testnet/);

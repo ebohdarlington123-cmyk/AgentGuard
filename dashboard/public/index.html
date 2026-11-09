@@ -64,7 +64,7 @@ h1 em{font-style:normal;color:var(--gold);text-shadow:0 0 28px rgba(240,195,106,
 .examples{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:8px}
 button.ex{min-height:84px;display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:8px;padding:12px 14px;color:var(--ink);text-align:left;border-radius:16px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease}
 button.ex span{font-size:15px;font-weight:680;line-height:1.25}
-button.ex small{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:760}
+button.ex small{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.1);color:var(--ink);font-size:12px;letter-spacing:.06em;text-transform:uppercase;font-weight:760}
 button.ex:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 button.ex.block{box-shadow:inset 3px 0 0 var(--block)}
 button.ex.pending{box-shadow:inset 3px 0 0 var(--pending)}
@@ -97,10 +97,11 @@ button.ex:active{transform:translateY(0)}
 .near-amt{font-weight:760;font-size:18px}
 .plain{position:relative;margin:14px 0 0;font-size:20px;line-height:1.3;max-width:40ch;color:var(--ink)}
 .tech{position:relative;margin:6px 0 0;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-word;max-width:64ch}
-.jump{position:sticky;top:57px;z-index:15;display:flex;gap:8px;overflow:auto;padding:10px 20px;background:rgba(7,8,12,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
-.jump a{flex:none;color:var(--muted);text-decoration:none;font-size:13px;font-weight:680;padding:6px 10px;border-radius:999px;border:1px solid transparent}
-.jump a:hover{color:var(--ink);border-color:var(--line);background:rgba(255,255,255,.04)}
-#try{min-height:calc(100svh - 108px);padding-bottom:48px}
+#try{min-height:calc(100svh - 64px);padding-bottom:28px}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:8px 0 0}
+.tab{min-height:48px;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:var(--ink);cursor:pointer;font-weight:680}
+.tab[aria-selected="true"]{border-color:var(--gold);background:rgba(240,195,106,.14);box-shadow:0 0 0 1px rgba(240,195,106,.35)}
+.tab:hover{background:rgba(255,255,255,.08)}
 .band{scroll-margin-top:120px;padding:88px 0 24px;border-top:1px solid var(--line)}
 .band h2{font-size:32px;letter-spacing:-.04em;text-transform:none;font-weight:740;margin:0 0 8px}
 .band .lead{margin:0 0 22px;max-width:40rem;color:var(--muted);font-size:16px;line-height:1.45}
@@ -112,7 +113,8 @@ label{display:block;margin:12px 0 6px;color:var(--muted);font-size:11px;letter-s
 input{width:100%;padding:12px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.1);background:rgba(0,0,0,.35);color:inherit;font:inherit;font-size:16px;transition:border-color .15s ease, box-shadow .15s ease}
 input:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 4px rgba(240,195,106,.16)}
 button{font:inherit;cursor:pointer;color:inherit}
-button.primary{width:100%;margin-top:16px;min-height:48px;border:0;border-radius:14px;background:linear-gradient(180deg,#ffe1a3,var(--gold));color:#1a1408;font-weight:780;letter-spacing:.12em;text-transform:uppercase;box-shadow:0 10px 24px rgba(240,195,106,.22);transition:transform .15s ease, filter .15s ease}
+button.primary{width:100%;margin-top:16px;min-height:52px;border:0;border-radius:14px;background:linear-gradient(180deg,#ffe7b8,var(--gold));color:#1a1408;font-weight:800;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 12px 28px rgba(240,195,106,.35);transition:transform .15s ease, filter .15s ease}
+button.primary[aria-busy="true"]{filter:saturate(.85)}
 button.primary:hover{transform:translateY(-1px);filter:brightness(1.06)}
 button.primary:active{transform:translateY(1px)}
 button.ghost{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:8px 12px;min-height:36px;letter-spacing:.08em;text-transform:uppercase;font-size:12px;transition:background .15s ease, border-color .15s ease}
@@ -153,7 +155,7 @@ h3{margin:0 0 12px;font-size:16px;font-weight:680;letter-spacing:0;text-transfor
   main{padding:22px 14px 72px}
   h1{font-size:40px;max-width:none}
   .stage{border-radius:20px}
-  .jump{top:96px}
+  .tabs{grid-template-columns:1fr 1fr}
   .examples{grid-template-columns:1fr 1fr}
   .slide{grid-template-columns:1fr 64px 1fr;padding:18px 10px}
   .big{font-size:26px}
@@ -191,13 +193,6 @@ h3{margin:0 0 12px;font-size:16px;font-weight:680;letter-spacing:0;text-transfor
   <strong>Waking up the demo server…</strong>
   <p>This free demo sleeps when idle, so the first visit can take about a minute. This page is already loaded. Retrying automatically.</p>
 </div>
-<nav class="jump" aria-label="Sections">
-  <a href="#try">Try it</a>
-  <a href="#rules">Spending rules</a>
-  <a href="#stopped">What has been stopped</a>
-  <a href="#own">Your payment</a>
-  <a href="#activity">Activity</a>
-</nav>
 <main>
 <section id="try">
   <h1>Agents pay.<br><em>This checks first.</em></h1>
@@ -231,16 +226,22 @@ h3{margin:0 0 12px;font-size:16px;font-weight:680;letter-spacing:0;text-transfor
   </div>
   <p class="try">Try it: pick a payment</p>
   <div class="examples">
-    <button type="button" class="ex block" onclick="tryExample('scam')"><span>Known scam address</span><small>Check →</small></button>
-    <button type="button" class="ex block" onclick="tryExample('cap')"><span>Over the spending limit</span><small>Check →</small></button>
-    <button type="button" class="ex pending" onclick="tryExample('inject')"><span>Hidden instruction in memo</span><small>Check →</small></button>
-    <button type="button" class="ex allow" onclick="tryExample('ok')"><span>Normal 0.1 NEAR payment</span><small>Check →</small></button>
+    <button type="button" class="ex block" onclick="tryExample('scam')"><span>Known scam address</span><small>Check now</small></button>
+    <button type="button" class="ex block" onclick="tryExample('cap')"><span>Over the spending limit</span><small>Check now</small></button>
+    <button type="button" class="ex pending" onclick="tryExample('inject')"><span>Hidden instruction in memo</span><small>Check now</small></button>
+    <button type="button" class="ex allow" onclick="tryExample('ok')"><span>Normal 0.1 NEAR payment</span><small>Check now</small></button>
   </div>
   </div>
   <p id="capHint">Spending limit: 0.5 NEAR per payment.</p>
   <div id="score" class="score-slot"><p class="muted">The result shows up here.</p></div>
 </section>
-<section id="rules" class="band">
+<div class="tabs" role="tablist" aria-label="More about this demo">
+  <button type="button" class="tab" id="tab-rules" role="tab" aria-selected="true" aria-controls="rules" onclick="showTab('rules')">Spending rules</button>
+  <button type="button" class="tab" id="tab-stopped" role="tab" aria-selected="false" aria-controls="stopped" onclick="showTab('stopped')">Stopped payments</button>
+  <button type="button" class="tab" id="tab-own" role="tab" aria-selected="false" aria-controls="own" onclick="showTab('own')">Your payment</button>
+  <button type="button" class="tab" id="tab-activity" role="tab" aria-selected="false" aria-controls="activity" onclick="showTab('activity')">Activity</button>
+</div>
+<section id="rules" class="band" role="tabpanel">
   <h2>Spending rules</h2>
   <p class="lead">The limit on the check above. Nothing here sends money.</p>
   <div class="panel">
@@ -248,7 +249,7 @@ h3{margin:0 0 12px;font-size:16px;font-weight:680;letter-spacing:0;text-transfor
     <div id="policy" class="muted">Waiting for the spending limit.</div>
   </div>
 </section>
-<section id="stopped" class="band">
+<section id="stopped" class="band" role="tabpanel" hidden>
   <h2>What has been stopped</h2>
   <p class="lead">Payments this agent already refused, and accounts reported as scams.</p>
   <div class="panel">
@@ -260,7 +261,7 @@ h3{margin:0 0 12px;font-size:16px;font-weight:680;letter-spacing:0;text-transfor
     <div class="tables"><table id="blocks"></table></div>
   </div>
 </section>
-<section id="own" class="band">
+<section id="own" class="band" role="tabpanel" hidden>
   <h2>Try your own payment</h2>
   <p class="lead">Type a payment. The result still appears in the check above.</p>
   <div class="panel ticket">
@@ -269,15 +270,15 @@ h3{margin:0 0 12px;font-size:16px;font-weight:680;letter-spacing:0;text-transfor
     <label for="rcv">Who gets paid</label>
     <input id="rcv" value="merchant.agentguard-15173.testnet" autocomplete="off">
     <label for="amt">Amount in NEAR</label>
-    <input id="amt" inputmode="decimal" placeholder="0.1" autocomplete="off">
+    <input id="amt" inputmode="decimal" value="0.1" autocomplete="off">
     <label for="memo">Note</label>
     <input id="memo" placeholder="pay invoice" autocomplete="off">
-    <button type="button" class="primary" onclick="doScore()">Check</button>
+    <button type="button" class="primary" id="checkNow" onclick="doScore()">Check now</button>
     <h3>Results just now</h3>
     <div class="tables"><table id="decisions"><tr><th>When</th><th>Who gets paid</th><th>Result</th><th>Risk</th></tr></table></div>
   </div>
 </section>
-<section id="activity" class="band">
+<section id="activity" class="band" role="tabpanel" hidden>
   <h2>Activity</h2>
   <p class="lead">Recent checks, and anything waiting for a person.</p>
   <div class="panel">
@@ -389,6 +390,23 @@ function renderScore(s, receiver, amountNear) {
     <div class="risk">Risk ${esc(risk)} / 100</div>
     ${reasonHtml(s.reasons)}</article>`;
 }
+function revealScore(out) {
+  if (out && typeof out.scrollIntoView === 'function') out.scrollIntoView({ block: 'center' });
+}
+function setCheckLabel(text) {
+  const b = document.getElementById('checkNow');
+  if (!b) return;
+  b.textContent = text;
+  if (b.setAttribute) b.setAttribute('aria-busy', text === 'Check now' ? 'false' : 'true');
+}
+function showTab(id) {
+  ['rules', 'stopped', 'own', 'activity'].forEach((name) => {
+    const panel = document.getElementById(name);
+    const tab = document.getElementById('tab-' + name);
+    if (panel) panel.hidden = name !== id;
+    if (tab && tab.setAttribute) tab.setAttribute('aria-selected', name === id ? 'true' : 'false');
+  });
+}
 async function doScore() {
   const receiver = document.getElementById('rcv').value.trim();
   const memo = document.getElementById('memo').value;
@@ -396,14 +414,22 @@ async function doScore() {
   const agent = document.getElementById('agentId').value.trim();
   const yocto = nearToYocto(amountNear);
   const out = document.getElementById('score');
-  if (yocto === null) { out.textContent = 'Enter the amount in NEAR, such as 0.1 or 0.7.'; return; }
+  if (yocto === null) {
+    out.textContent = 'Enter the amount in NEAR, such as 0.1 or 0.7.';
+    setCheckLabel('Check now');
+    revealScore(out);
+    return;
+  }
   if (!apiReady) {
     queuedScore = true;
-    out.innerHTML = '<article class="verdict-card pending"><span class="mark">!</span><b class="pending">WAITING</b><p class="plain">Waking up the demo server… This check will run automatically when it answers.</p></article>';
+    setCheckLabel('Waiting for the server…');
+    out.innerHTML = '<article class="verdict-card pending"><span class="mark">!</span><b class="pending">WAITING</b><p class="plain">Waking up the demo server… This check will run as soon as it answers. The button is still active.</p></article>';
+    revealScore(out);
     return;
   }
   if (scoring) return;
   scoring = true;
+  setCheckLabel('Checking…');
   out.className = 'score-slot checking';
   try {
     const q = { receiver, memo };
@@ -417,7 +443,8 @@ async function doScore() {
       if (tape) tape.className = 'intercept locked ' + key;
     }
     document.getElementById('decisions').insertAdjacentHTML('beforeend', `<tr><td>${new Date().toLocaleTimeString()}</td><td>${esc(q.receiver)}</td><td class="${s.verdict}">${s.verdict}</td><td>${s.risk}</td></tr>`);
-  } finally { scoring = false; out.className = 'score-slot'; }
+    revealScore(out);
+  } finally { scoring = false; out.className = 'score-slot'; setCheckLabel('Check now'); }
 }
 async function tryExample(name) {
   const demo = {
